@@ -1,0 +1,10 @@
+.idea
+.DS_Store
+.eslintrc
+.editorconfig
+node_modules
+*.log
+*.psd
+build
+game.zip
+build.zip

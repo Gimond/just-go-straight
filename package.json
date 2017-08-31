@@ -1,0 +1,37 @@
+{
+  "name": "js13k-boilerplate",
+  "version": "1.0.0",
+  "description": "---",
+  "main": "src/main.js",
+  "scripts": {
+    "clean": "rm -rf build/ & mkdir build",
+    "build": "webpack --progress --colors",
+    "watch": "webpack --colors --watch",
+    "test": "echo \"Error: no test specified\" && exit 0",
+    "zip": "rm build.zip & cd build & \"C:\\Program Files\\7-Zip\\7z.exe\" a ../build.zip",
+    "lint": "eslint ./src --fix",
+    "package": "npm run build && npm run zip",
+    "prepush": "npm run lint"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/voronianski-on-games/js13kGames-boilerplate.git"
+  },
+  "author": "Dmitri Voronianski <dmitri.voronianski@gmail.com>",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/voronianski-on-games/js13kGames-boilerplate/issues"
+  },
+  "homepage": "https://github.com/voronianski-on-games/js13kGames-boilerplate#readme",
+  "devDependencies": {
+    "uglifyjs-webpack-plugin": "latest",
+    "envify": "^3.4.1",
+    "eslint": "^3.3.0",
+    "html-webpack-plugin": "^2.22.0",
+    "husky": "^0.11.6",
+    "stats.js": "^0.16.0",
+    "transform-loader": "^0.2.3",
+    "webpack": "^1.13.1"
+  },
+  "dependencies": {}
+}
