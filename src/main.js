@@ -22,6 +22,7 @@ var key = require('./key');
   ctx.webkitImageSmoothingEnabled = false;
 
   var mob = {};
+  var beach = {};
   var jungle = {};
   var jungle_save = [];
   var jungle_saved = -1;
@@ -40,8 +41,8 @@ var key = require('./key');
     sounds[objectKey].src = soundURL;
   });
 
-  var beach = new Image();
-  beach.src = 'b.png';
+  var beach_bg = new Image();
+  beach_bg.src = 'b.png';
 
   var pirate = new Image();
   pirate.src = 'p.png';
@@ -58,17 +59,10 @@ var key = require('./key');
   var items_sprite = new Image();
   items_sprite.src = 'i.png';
 
-  var beach_bounds = [
-    {x: 0, y: 0, width: 640, height: 312},
-    {x: 0, y: 0, width: 360, height: 480},
-    {x: 0, y: 384, width: 640, height: 96},
-    {x: 580, y: 344, width: 60, height: 136}
-  ];
-
   // 0 = cheater
   // 1 = lose
-  // 2 = win
-  // 3 = true pirate
+  // 2 = forgot shovel
+  // 3 = win
   var endings = [false, false, false, false];
 
   var timer = 0;
@@ -163,12 +157,12 @@ var key = require('./key');
 
     if (mob.beach) {
       // draw beach
-      ctx.drawImage(beach, 0, 0, canvas.width, canvas.height);
+      ctx.drawImage(beach_bg, 0, 0, canvas.width, canvas.height);
     } else if (mob.win) {
       // draw end screen
       ctx.drawImage(treasure, 0, 0, canvas.width, canvas.height);
 
-      if (mob.never_lost) {
+      if (mob.never_lost && mob.shovel) {
         mob.walk_to = 240;
 
         if (mob.x >= mob.walk_to) {
@@ -183,21 +177,27 @@ var key = require('./key');
           }
           if (mob.end == -1) {
             sounds['win'].play();
-
-            if (mob.hat && mob.sword) {
-              mob.end = 3;
-            } else {
-              mob.end = 2;
-            }
+            mob.end = 3;
           }
         }
-      } else {
+      }
+      if (!mob.never_lost) {
         mob.walk_to = 200;
         // empty chest
         ctx.drawImage(items_sprite, 65, 0, 40, 28, 248, 236, 160, 112);
         if (mob.x >= mob.walk_to && mob.end == -1) {
           sounds['empty'].play();
           mob.end = 1;
+        }
+      }
+      if (mob.never_lost && !mob.shovel) {
+        mob.walk_to = 294;
+        // no shovel
+        // ctx.drawImage(items_sprite, 65, 0, 40, 28, 248, 236, 160, 112);
+        if (mob.x >= mob.walk_to && mob.end == -1) {
+          sounds['empty'].play();
+          mob.end = 2;
+          mob.dir = 2;
         }
       }
 
@@ -254,7 +254,7 @@ var key = require('./key');
         }
       });
 
-      ctx.drawImage(items_sprite, 0, mob.end*9+45, 79, 9, 162, 42, 316, 36);
+      ctx.drawImage(items_sprite, 0, mob.end*9+46, 79, 9, 162, 42, 316, 36);
     }
 
     // feet
@@ -278,6 +278,12 @@ var key = require('./key');
     });
 
     // objects
+    if (mob.beach) {
+      if (beach.shovel1)
+        ctx.drawImage(items_sprite, 84, 52, 7, 9, 448, 268, 28, 36);
+      if (beach.shovel2)
+        ctx.drawImage(items_sprite, 91, 52, 3, 11, 432, 268, 12, 44);
+    }
     if (!mob.beach && !mob.win) {
       if (jungle.sword) {
         ctx.drawImage(items_sprite, 56, 0, 4, 9, jungle.sword_x, 292, 16, 36);
@@ -294,32 +300,6 @@ var key = require('./key');
 
     // draw pirate
     ctx.drawImage(pirate, mob.dir*8, 0, 8, 9, mob.x - 16, mob.y-40, 32, 40);
-    // equipment
-    if (mob.dir == 0) {
-      if (mob.sword)
-        ctx.drawImage(items_sprite, 60, 0, 2, 10, mob.x +12, mob.y-44, 8, 40);
-      if (mob.hat)
-        ctx.drawImage(items_sprite, 10, 0, 8, 5, mob.x-16, mob.y-44, 32, 20);
-    }
-    if (mob.dir == 1) {
-      if (mob.hat)
-        ctx.drawImage(items_sprite, 18, 0, 10, 5, mob.x-24, mob.y-50, 40, 20);
-      if (mob.sword)
-        ctx.drawImage(items_sprite, 60, 0, 2, 10, mob.x -12, mob.y-44, 8, 40);
-    }
-    if (mob.dir == 2) {
-      if (mob.hat)
-        ctx.drawImage(items_sprite, 28, 0, 8, 5, mob.x-16, mob.y-46, 32, 20);
-      if (mob.sword)
-        ctx.drawImage(items_sprite, 62, 0, 2, 10, mob.x -20, mob.y-44, 8, 40);
-    }
-    if (mob.dir == 3) {
-      if (mob.sword)
-        ctx.drawImage(items_sprite, 62, 0, 2, 10, mob.x -20, mob.y-44, 8, 40);
-      if (mob.hat)
-        ctx.drawImage(items_sprite, 36, 0, 10, 5, mob.x-16, mob.y-50, 40, 20);
-    }
-
 
     // feet
     ctx.fillStyle = '#4e3d1f';
@@ -333,6 +313,40 @@ var key = require('./key');
     } else {
       ctx.fillRect(mob.x+8, mob.y, 4, 4);
       ctx.fillRect(mob.x-12, mob.y, 4, 4);
+    }
+
+    // equipment
+    if (mob.dir == 0) {
+      if (mob.shovel)
+        ctx.drawImage(items_sprite, 79, 52, 2, 8, mob.x-20, mob.y-32, 8, 32);
+      if (mob.sword)
+        ctx.drawImage(items_sprite, 60, 0, 2, 10, mob.x+12, mob.y-44, 8, 40);
+      if (mob.hat)
+        ctx.drawImage(items_sprite, 10, 0, 8, 5, mob.x-16, mob.y-44, 32, 20);
+    }
+    if (mob.dir == 1) {
+      if (mob.hat)
+        ctx.drawImage(items_sprite, 18, 0, 10, 5, mob.x-24, mob.y-50, 40, 20);
+      if (mob.sword)
+        ctx.drawImage(items_sprite, 60, 0, 2, 10, mob.x-12, mob.y-44, 8, 40);
+      if (mob.shovel)
+        ctx.drawImage(items_sprite, 79, 49, 12, 3, mob.x-28, mob.y-12, 48, 12);
+    }
+    if (mob.dir == 2) {
+      if (mob.shovel)
+        ctx.drawImage(items_sprite, 81, 52, 3, 8, mob.x+8, mob.y-20, 12, 32);
+      if (mob.hat)
+        ctx.drawImage(items_sprite, 28, 0, 8, 5, mob.x-16, mob.y-46, 32, 20);
+      if (mob.sword)
+        ctx.drawImage(items_sprite, 62, 0, 2, 10, mob.x -20, mob.y-44, 8, 40);
+    }
+    if (mob.dir == 3) {
+      if (mob.shovel)
+        ctx.drawImage(items_sprite, 79, 46, 12, 3, mob.x-20, mob.y-12, 48, 12);
+      if (mob.sword)
+        ctx.drawImage(items_sprite, 62, 0, 2, 10, mob.x -20, mob.y-44, 8, 40);
+      if (mob.hat)
+        ctx.drawImage(items_sprite, 36, 0, 10, 5, mob.x-16, mob.y-50, 40, 20);
     }
 
     if (!mob.beach && !mob.win) {
@@ -350,8 +364,8 @@ var key = require('./key');
         ctx.drawImage(items_sprite, 46, 0, 10, 15, 586, 332, 40, 60);
     }
 
-    // draw jungle collision
-    // jungle.bounds.forEach(function(bound) {
+    // draw collision
+    // beach.bounds.forEach(function(bound) {
     //   ctx.fillStyle = 'rgba(255,255,255,0.2)';
     //   ctx.fillRect(bound.x, bound.y, bound.width, bound.height);
     // });
@@ -499,7 +513,7 @@ var key = require('./key');
   function check_collisions() {
     var bounds = {};
     if (mob.beach)
-      bounds = beach_bounds;
+      bounds = beach.bounds;
     else
       bounds = jungle.bounds;
 
@@ -529,6 +543,22 @@ var key = require('./key');
       mob.hat = true;
       sounds['pickup'].play();
     }
+    if (mob.beach && !mob.shovel && beach.shovel1 && (448 < mob.x &&
+        476 > mob.x &&
+        268 < mob.y &&
+        304 > mob.y)) {
+      beach.shovel1 = false;
+      mob.shovel = true;
+      sounds['pickup'].play();
+    }
+    if (mob.beach && !mob.shovel && beach.shovel2 && (432 < mob.x &&
+        432 + 12 > mob.x &&
+        268 < mob.y &&
+        312 > mob.y)) {
+      beach.shovel2 = false;
+      mob.shovel = true;
+      sounds['pickup'].play();
+    }
   }
 
   function init() {
@@ -546,6 +576,7 @@ var key = require('./key');
       back_to_beach: false,
       sword: false,
       hat: false,
+      shovel: false,
       never_lost: true,
       path_followed: [],
       end: -1,
@@ -561,6 +592,24 @@ var key = require('./key');
       tileset: [],
       tilesetb: [],
       is_clone: -1
+    };
+
+    beach = {
+      bounds: [
+        {x: 0, y: 0, width: 640, height: 284},
+        {x: 0, y: 0, width: 360, height: 480},
+        {x: 0, y: 384, width: 640, height: 96},
+        {x: 580, y: 340, width: 60, height: 140},
+        {x: 0, y: 0, width: 372, height: 304},
+        {x: 0, y: 0, width: 400, height: 300},
+        {x: 0, y: 0, width: 432, height: 296},
+        {x: 0, y: 0, width: 464, height: 292},
+        {x: 0, y: 0, width: 488, height: 288},
+        {x: 468, y: 284, width: 160, height: 24}
+      ],
+      shovel1: true,
+      shovel2: true,
+      steps: []
     };
 
     jungle_save = [];
