@@ -25,7 +25,7 @@ var key = require('./key');
   var beach = {};
   var jungle = {};
   var jungle_save = [];
-  var jungle_saved = -1;
+  var jungle_saved_index = -1;
   init();
 
   var sounds = {
@@ -370,6 +370,20 @@ var key = require('./key');
     //   ctx.fillRect(bound.x, bound.y, bound.width, bound.height);
     // });
 
+    // document.getElementById('debug').innerHTML = JSON.stringify(jungle_save, null, 4);*
+    // if (rand_int(2) >= 2)
+    //   console.log('');
+
+    var output = '';
+    jungle_save.forEach(function(jungle_temp) {
+      for (var property in jungle_temp) {
+        output += property + ': ' + jungle_temp[property]+'<br> ';
+      }
+      output += '<br>';
+    });
+    document.getElementById('debug').innerHTML = output;
+
+
     mob.prev_x = mob.x;
     mob.prev_y = mob.y;
   });
@@ -409,22 +423,34 @@ var key = require('./key');
   }
 
   function generate_jungle(path_taken) {
-    // landmark? we save the jungle screen to serve it later so the player feel lost
-    // always save when the hat is here, save some signs
-    if (jungle.is_clone == -1 && (jungle.hat || (jungle.sign > -1 && jungle_save.length < 3))) {
-      var jungle_clone = clone(jungle);
-      jungle_clone.is_clone = jungle_save.length;
-      jungle_save.push(jungle_clone);
-      jungle_saved = jungle_save.length-1;
-      console.log('save previous on '+(jungle_save.length-1));
-    }
     // if it is already a clone, we update the copy to keep the steps
-    if (jungle.is_clone > -1) {
+    if (jungle.clone_index > -1) {
       var jungle_clone_2 = clone(jungle);
-      jungle_saved = jungle_clone_2.is_clone;
-      jungle_save[jungle_clone_2.is_clone] = jungle_clone_2;
+      jungle_saved_index = jungle_clone_2.clone_index;
+      jungle_save[jungle_clone_2.clone_index] = jungle_clone_2;
+    }
+    if (jungle.clone_index == -1 && (jungle.hat || (jungle.sign > -1 && jungle_save.length < 3))) {
+      // landmark? we save the jungle screen to serve it later so the player feel lost
+      // always save when the hat is here, save some signs
+      var jungle_clone = clone(jungle);
+      jungle_clone.clone_index = jungle_save.length;
+      jungle_save.push(jungle_clone);
+      jungle_saved_index = jungle_save.length-1;
+      // console.log('save previous on '+(jungle_save.length-1));
+      // console.log('save previous on '+JSON.stringify(jungle_save));
     }
 
+
+    jungle = {
+      sign: -1,
+      sword: false,
+      hat: false,
+      steps: [],
+      bound: [],
+      tileset: [],
+      tilesetb: [],
+      clone_index: -1
+    };
     jungle.steps = [];
     if (mob.beach || mob.win) return;
 
@@ -432,12 +458,14 @@ var key = require('./key');
     // need at least 2 saved jungles and don't include if just saved
     if (rand_int(11) > 6 && jungle_save.length > 1) {
       var rand = 0;
-      var jungle_save_copy = jungle_save;
-      if (jungle_saved > -1)
-        jungle_save.splice(jungle_saved, 1);
+      var jungle_save_copy = jungle_save.slice(0);
+      if (jungle_saved_index > -1) {
+        jungle_save_copy.splice(jungle_saved_index, 1);
+      }
       rand = rand_int(jungle_save_copy.length);
+      // rand = rand_int(jungle_save.length);
 
-      jungle = jungle_save[rand];
+      jungle = clone(jungle_save_copy[rand]);
       sounds['screen_change'].play();
 
       jungle.tileset.forEach(function(tile, index){
@@ -449,10 +477,12 @@ var key = require('./key');
           mob.x = index*160+82;
       });
 
-      jungle_saved = -1;
+      jungle_saved_index = -1;
+      console.log('trying to serve : '+rand);
+      console.log(JSON.stringify(jungle));
       return;
     }
-    jungle_saved = -1;
+    jungle_saved_index = -1;
 
     // tiles
     jungle.tileset = [rand_int(3),rand_int(3),rand_int(3),rand_int(3)];
@@ -591,7 +621,7 @@ var key = require('./key');
       bound: [],
       tileset: [],
       tilesetb: [],
-      is_clone: -1
+      clone_index: -1
     };
 
     beach = {
@@ -616,9 +646,22 @@ var key = require('./key');
   }
 
   function clone(obj) {
-    var copy = {};
-    for (var attr in obj) {
-      if (obj.hasOwnProperty(attr)) copy[attr] = obj[attr];
+    var copy;
+    if(Array.isArray(obj)) {
+      copy = obj.map(function(elm) {
+        return Array.isArray(elm) || (typeof elm === 'object' && elm) ? clone(elm) : elm;
+      });
+    } else {
+      copy = {};
+      for (var attr in obj) {
+        if (obj.hasOwnProperty(attr)) {
+          if(Array.isArray(obj[attr]) || (typeof obj[attr] === 'object' && obj[attr])) {
+            copy[attr] = clone(obj[attr]);
+          } else {
+            copy[attr] = obj[attr];
+          }
+        }
+      }
     }
     return copy;
   }

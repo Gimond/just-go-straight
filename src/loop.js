@@ -1,10 +1,10 @@
 var lastTime = timestamp();
 var stats;
 
-if (!PRODUCTION) {
-  stats = require('stats.js')(0);
-  document.body.appendChild(stats.dom);
-}
+// if (!PRODUCTION) {
+//   stats = require('stats.js')(0);
+//   document.body.appendChild(stats.dom);
+// }
 
 function timestamp () {
   return window.performance && window.performance.now ?

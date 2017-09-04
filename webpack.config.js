@@ -27,7 +27,7 @@ if (isProduction) {
 }
 
 module.exports = {
-  devtool: 'eval',
+  // devtool: 'eval',
 
   entry: {
     app: './src/main'
