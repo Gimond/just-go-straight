@@ -33,7 +33,8 @@ var key = require('./key');
     screen_change: [0,,0.1223,,0.2985,0.4522,,0.2578,,,,,,0.2074,,,,,0.8619,,,,,0.5],
     win: [0,,0.42,,0.61,0.4823,0.3,0.28,0.08,,,,,0.5228,,0.4983,,,1,,,,,0.5],
     empty: [1,,0.27,,0.59,0.45,,-0.2325,,,,,,0.0266,0.1374,,,,1,,,,,0.5],
-    step: [1,,0.0284,,0.1618,0.397,,-0.6104,,,,,,,,,,,1,,,0.2436,,0.5]
+    step: [1,,0.0284,,0.1618,0.397,,-0.6104,,,,,,,,,,,1,,,0.2436,,0.5],
+    hit: [3,,0.0833,,0.1303,0.3802,,-0.4149,,,,,,,,,,,1,,,0.1488,,0.5]
   };
   Object.keys(sounds).map(function(objectKey, index) {
     var soundURL = jsfxr.init(sounds[objectKey]);
@@ -63,10 +64,15 @@ var key = require('./key');
   // 1 = lose
   // 2 = forgot shovel
   // 3 = win
-  var endings = [false, false, false, false];
+  // var endings = [false, false, false, false];
+  var endings = [true, true, true, true];
+  var game_complete = false;
 
   var timer = 0;
   var timer_step = 0;
+  var timer_eyes = 0;
+  var timer_anim_win = 0;
+  var timeout_game_complete = 1;
   // var secret_path = [1,3,0,1,0,2,3,0,2,1,1,0,3,2,0,1,3,3,3,1,2,0];
   var cheat_path = [0,0,2,2,3,1,3,1];
 
@@ -75,7 +81,15 @@ var key = require('./key');
     timer+= dt;
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    if (mob.end > -1 && key.isDown(key.ENTER)) {
+    if (mob.end > -1 && key.isDown(key.ENTER) && (endings[0] && endings[1] && endings[2] && endings[3]) && !game_complete) {
+      sounds['win'].play();
+      game_complete = true;
+    }
+    if (mob.end > -1 && key.isDown(key.ENTER) && (!game_complete || timeout_game_complete <= 0)) {
+      if (game_complete) {
+        game_complete = false;
+        endings = [false, false, false, false];
+      }
       init();
       sounds['screen_change'].play();
     }
@@ -133,7 +147,7 @@ var key = require('./key');
       if (!mob.lost) {
         mob.straight_count++;
 
-        if (mob.straight_count > 2) {
+        if (mob.straight_count > 5) {
           mob.win = true;
           mob.x = 10;
           mob.y = 320;
@@ -162,23 +176,53 @@ var key = require('./key');
       // draw end screen
       ctx.drawImage(treasure, 0, 0, canvas.width, canvas.height);
 
-      if (mob.never_lost && mob.shovel) {
-        mob.walk_to = 240;
+      if (mob.never_lost && (mob.shovel || mob.end_shovel > 0)) {
+        mob.walk_to = 316;
 
+        if (mob.x >= 240) {
+          // shovel ready
+          mob.shovel = false;
+          mob.end_shovel = 1;
+        }
         if (mob.x >= mob.walk_to) {
-          ctx.drawImage(items_sprite, 65, 0, 40, 28, 248, 236, 160, 112);
-          ctx.drawImage(items_sprite, 10, 5, 22, 19, 280, 264, 88, 76);
-          mob.dir = 2;
+          timer_anim_win+= dt;
 
-          if (mob.cheated) {
-            sounds['win'].play();
-            mob.end = 0;
-            mob.cheated = false;
+          if (timer_anim_win > 0.5) {
+            // shovel down
+            if (!mob.dug) {
+              sounds['hit'].play();
+              mob.dug = true;
+            }
+            mob.end_shovel = 2;
           }
-          if (mob.end == -1) {
-            sounds['win'].play();
-            mob.end = 3;
+          if (timer_anim_win > 1) {
+            ctx.drawImage(items_sprite, 65, 0, 40, 28, 248, 236, 160, 112);
+            ctx.drawImage(items_sprite, 10, 5, 22, 19, 280, 264, 88, 76);
+            if (mob.y != 236) {
+              jungle.steps.splice(jungle.steps.length - 5);
+              mob.y = 236;
+            }
           }
+          if (timer_anim_win > 1.5) {
+            mob.dir = 2;
+            mob.end_shovel = 0;
+            mob.shovel = true;
+
+            if (mob.cheated) {
+              sounds['win'].play();
+              mob.end = 0;
+              mob.cheated = false;
+            }
+            if (mob.end == -1) {
+              sounds['win'].play();
+              mob.end = 3;
+            }
+          }
+        }
+        if (mob.x >= 150 && mob.sword) {
+          sounds['hit'].play();
+          mob.sword = false;
+          mob.end_sword = true;
         }
       }
       if (!mob.never_lost) {
@@ -190,14 +234,18 @@ var key = require('./key');
           mob.end = 1;
         }
       }
-      if (mob.never_lost && !mob.shovel) {
+      if (mob.never_lost && (!mob.shovel && mob.end_shovel == 0)) {
         mob.walk_to = 294;
         // no shovel
-        // ctx.drawImage(items_sprite, 65, 0, 40, 28, 248, 236, 160, 112);
         if (mob.x >= mob.walk_to && mob.end == -1) {
           sounds['empty'].play();
           mob.end = 2;
           mob.dir = 2;
+        }
+        if (mob.x >= 150 && mob.sword) {
+          sounds['hit'].play();
+          mob.sword = false;
+          mob.end_sword = true;
         }
       }
 
@@ -218,6 +266,113 @@ var key = require('./key');
       });
       ctx.fillStyle = '#ffcc00';
       ctx.fillRect(0, 344, 640, 136);
+    }
+
+    // feet
+    if (mob.moving) {
+      timer_step += dt;
+      if (((mob.back_to_beach || mob.win) && timer_step > 0.09) || (!mob.back_to_beach && !mob.win && timer_step > 0.04)) {
+        timer_step = 0;
+        var step = {};
+        if (mob.step) {
+          step = {x: mob.x +8, y: mob.y};
+          mob.step = 0;
+        } else {
+          step = {x: mob.x -12, y: mob.y-4};
+          mob.step = 1;
+        }
+        if (mob.beach)
+          beach.steps.push(step);
+        else
+          jungle.steps.push(step);
+      }
+    }
+    // steps
+    ctx.fillStyle = '#d6ad09';
+    if (mob.beach) {
+      beach.steps.forEach(function(step) {
+        ctx.fillRect(step.x, step.y, 4, 4);
+      });
+    } else {
+      jungle.steps.forEach(function(step) {
+        ctx.fillRect(step.x, step.y, 4, 4);
+      });
+    }
+
+    // objects
+    if (mob.beach) {
+      if (beach.shovel)
+        ctx.drawImage(items_sprite, 84, 52, 7, 9, 416, 276, 28, 36);
+    }
+    if (!mob.beach && !mob.win) {
+      if (jungle.sword) {
+        ctx.drawImage(items_sprite, 56, 0, 4, 9, jungle.sword_x, 292, 16, 36);
+      }
+      if (jungle.hat) {
+        ctx.drawImage(items_sprite, 0, 0, 10, 10, jungle.hat_x, 292, 40, 40);
+        if (!mob.hat)
+          ctx.drawImage(items_sprite, 36, 0, 10, 5, jungle.hat_x, 292, 40, 20);
+      }
+      // left sign
+      if (jungle.sign == 3)
+        ctx.drawImage(items_sprite, 90, 28, 12, 14, 14, 238, 48, 56);
+    }
+
+    // draw pirate
+    ctx.drawImage(pirate, mob.dir*8, 0, 8, 9, mob.x - 16, mob.y-36, 32, 36);
+
+    // feet
+    ctx.fillStyle = '#4e3d1f';
+    if (mob.moving) {
+      if (Math.ceil(timer * 10) % 2 == 0) {
+        sounds['step'].play();
+        ctx.fillRect(mob.x+8, mob.y, 4, 4);
+      } else {
+        ctx.fillRect(mob.x-12, mob.y, 4, 4);
+      }
+    } else {
+      ctx.fillRect(mob.x+8, mob.y, 4, 4);
+      ctx.fillRect(mob.x-12, mob.y, 4, 4);
+    }
+
+    // equipment
+    if (mob.dir == 0) {
+      if (mob.shovel)
+        ctx.drawImage(items_sprite, 79, 52, 2, 8, mob.x-20, mob.y-32, 8, 32);
+      if (mob.sword)
+        ctx.drawImage(items_sprite, 60, 0, 2, 10, mob.x+12, mob.y-44, 8, 40);
+      if (mob.hat)
+        ctx.drawImage(items_sprite, 10, 0, 8, 5, mob.x-16, mob.y-40, 32, 20);
+    }
+    if (mob.dir == 1) {
+      if (mob.hat)
+        ctx.drawImage(items_sprite, 18, 0, 10, 5, mob.x-24, mob.y-48, 40, 20);
+      if (mob.sword)
+        ctx.drawImage(items_sprite, 60, 0, 2, 10, mob.x-12, mob.y-44, 8, 40);
+      if (mob.shovel)
+        ctx.drawImage(items_sprite, 79, 49, 12, 3, mob.x-28, mob.y-12, 48, 12);
+    }
+    if (mob.dir == 2) {
+      if (mob.shovel)
+        ctx.drawImage(items_sprite, 81, 52, 3, 8, mob.x+8, mob.y-20, 12, 32);
+      if (mob.hat)
+        ctx.drawImage(items_sprite, 28, 0, 8, 5, mob.x-16, mob.y-44, 32, 20);
+      if (mob.sword)
+        ctx.drawImage(items_sprite, 62, 0, 2, 10, mob.x -20, mob.y-44, 8, 40);
+    }
+    if (mob.dir == 3) {
+      if (mob.shovel)
+        ctx.drawImage(items_sprite, 79, 46, 12, 3, mob.x-20, mob.y-12, 48, 12);
+      if (mob.sword)
+        ctx.drawImage(items_sprite, 62, 0, 2, 10, mob.x -20, mob.y-44, 8, 40);
+      if (mob.hat)
+        ctx.drawImage(items_sprite, 36, 0, 10, 5, mob.x-16, mob.y-48, 40, 20);
+    }
+    if (mob.end_shovel == 1) {
+      ctx.drawImage(items_sprite, 79, 63, 12, 3, mob.x-16, mob.y-16, 48, 12);
+    }
+    if (mob.end_shovel == 2) {
+      ctx.drawImage(items_sprite, 79, 66, 12, 7, mob.x-16, mob.y-20, 48, 28);
     }
 
     // end
@@ -257,98 +412,6 @@ var key = require('./key');
       ctx.drawImage(items_sprite, 0, mob.end*9+46, 79, 9, 162, 42, 316, 36);
     }
 
-    // feet
-    if (mob.moving) {
-      timer_step += dt;
-      if (((mob.back_to_beach || mob.win) && timer_step > 0.09) || (!mob.back_to_beach && !mob.win && timer_step > 0.04)) {
-        timer_step = 0;
-        if (mob.step) {
-          jungle.steps.push({x: mob.x +8, y: mob.y});
-          mob.step = 0;
-        } else {
-          jungle.steps.push({x: mob.x -12, y: mob.y-4});
-          mob.step = 1;
-        }
-      }
-    }
-    // steps
-    ctx.fillStyle = '#d6ad09';
-    jungle.steps.forEach(function(step) {
-      ctx.fillRect(step.x, step.y, 4, 4);
-    });
-
-    // objects
-    if (mob.beach) {
-      if (beach.shovel1)
-        ctx.drawImage(items_sprite, 84, 52, 7, 9, 448, 268, 28, 36);
-      if (beach.shovel2)
-        ctx.drawImage(items_sprite, 91, 52, 3, 11, 432, 268, 12, 44);
-    }
-    if (!mob.beach && !mob.win) {
-      if (jungle.sword) {
-        ctx.drawImage(items_sprite, 56, 0, 4, 9, jungle.sword_x, 292, 16, 36);
-      }
-      if (jungle.hat) {
-        ctx.drawImage(items_sprite, 0, 0, 10, 10, jungle.hat_x, 292, 40, 40);
-        if (!mob.hat)
-          ctx.drawImage(items_sprite, 36, 0, 10, 5, jungle.hat_x, 292, 40, 20);
-      }
-      // left sign
-      if (jungle.sign == 3)
-        ctx.drawImage(items_sprite, 90, 28, 12, 14, 14, 238, 48, 56);
-    }
-
-    // draw pirate
-    ctx.drawImage(pirate, mob.dir*8, 0, 8, 9, mob.x - 16, mob.y-40, 32, 40);
-
-    // feet
-    ctx.fillStyle = '#4e3d1f';
-    if (mob.moving) {
-      if (Math.ceil(timer * 10) % 2 == 0) {
-        sounds['step'].play();
-        ctx.fillRect(mob.x+8, mob.y, 4, 4);
-      } else {
-        ctx.fillRect(mob.x-12, mob.y, 4, 4);
-      }
-    } else {
-      ctx.fillRect(mob.x+8, mob.y, 4, 4);
-      ctx.fillRect(mob.x-12, mob.y, 4, 4);
-    }
-
-    // equipment
-    if (mob.dir == 0) {
-      if (mob.shovel)
-        ctx.drawImage(items_sprite, 79, 52, 2, 8, mob.x-20, mob.y-32, 8, 32);
-      if (mob.sword)
-        ctx.drawImage(items_sprite, 60, 0, 2, 10, mob.x+12, mob.y-44, 8, 40);
-      if (mob.hat)
-        ctx.drawImage(items_sprite, 10, 0, 8, 5, mob.x-16, mob.y-44, 32, 20);
-    }
-    if (mob.dir == 1) {
-      if (mob.hat)
-        ctx.drawImage(items_sprite, 18, 0, 10, 5, mob.x-24, mob.y-50, 40, 20);
-      if (mob.sword)
-        ctx.drawImage(items_sprite, 60, 0, 2, 10, mob.x-12, mob.y-44, 8, 40);
-      if (mob.shovel)
-        ctx.drawImage(items_sprite, 79, 49, 12, 3, mob.x-28, mob.y-12, 48, 12);
-    }
-    if (mob.dir == 2) {
-      if (mob.shovel)
-        ctx.drawImage(items_sprite, 81, 52, 3, 8, mob.x+8, mob.y-20, 12, 32);
-      if (mob.hat)
-        ctx.drawImage(items_sprite, 28, 0, 8, 5, mob.x-16, mob.y-46, 32, 20);
-      if (mob.sword)
-        ctx.drawImage(items_sprite, 62, 0, 2, 10, mob.x -20, mob.y-44, 8, 40);
-    }
-    if (mob.dir == 3) {
-      if (mob.shovel)
-        ctx.drawImage(items_sprite, 79, 46, 12, 3, mob.x-20, mob.y-12, 48, 12);
-      if (mob.sword)
-        ctx.drawImage(items_sprite, 62, 0, 2, 10, mob.x -20, mob.y-44, 8, 40);
-      if (mob.hat)
-        ctx.drawImage(items_sprite, 36, 0, 10, 5, mob.x-16, mob.y-50, 40, 20);
-    }
-
     if (!mob.beach && !mob.win) {
       // draw jungle bottom
       var tileb_x = 0;
@@ -363,26 +426,50 @@ var key = require('./key');
       if (jungle.sign == 1)
         ctx.drawImage(items_sprite, 46, 0, 10, 15, 586, 332, 40, 60);
     }
+    if (mob.end_sword) {
+      ctx.drawImage(items_sprite, 56, 0, 4, 9, 150, 304, 16, 36);
+    }
+
+    if (jungle.eyes_x > 0 && timer_eyes < 3) {
+      ctx.fillStyle = '#ff0033';
+      ctx.fillRect(jungle.eyes_x, jungle.eyes_y, 4, 4);
+      ctx.fillRect(jungle.eyes_x+12, jungle.eyes_y, 4, 4);
+    }
+    if (timer_eyes >= 3.2) {
+      timer_eyes = 0;
+    } else {
+      timer_eyes+= dt;
+    }
+
+    // message on game complete
+    if (game_complete) {
+      timeout_game_complete-= dt;
+
+      ctx.fillStyle = 'rgba(189,113,0,0.9)';
+      ctx.fillRect(30,30,580,420);
+
+      ctx.drawImage(items_sprite, 0, 81, 99, 9, 122, 100, 396, 36);
+
+      ctx.fillStyle = '#ffffff';
+      ctx.font = '20px serif';
+      var txt = 'You have found every possible ending and completed the game,\nI hope you enjoyed it.\nDid you find the konami code ending by yourself?\nIf you did, i\'m impressed, give me a shout on twitter @bibishop\n\nPressing Enter again will reset the game and you will lose all\nthe achievements.';
+      var x = 60;
+      var y = 210;
+      var lineheight = 25;
+      var lines = txt.split('\n');
+
+      for (var i = 0; i<lines.length; i++) {
+        ctx.fillText(lines[i], x, y + (i * lineheight));
+      }
+    }
+
+    console.log(timeout_game_complete);
 
     // draw collision
     // beach.bounds.forEach(function(bound) {
     //   ctx.fillStyle = 'rgba(255,255,255,0.2)';
     //   ctx.fillRect(bound.x, bound.y, bound.width, bound.height);
     // });
-
-    // document.getElementById('debug').innerHTML = JSON.stringify(jungle_save, null, 4);*
-    // if (rand_int(2) >= 2)
-    //   console.log('');
-
-    var output = '';
-    jungle_save.forEach(function(jungle_temp) {
-      for (var property in jungle_temp) {
-        output += property + ': ' + jungle_temp[property]+'<br> ';
-      }
-      output += '<br>';
-    });
-    document.getElementById('debug').innerHTML = output;
-
 
     mob.prev_x = mob.x;
     mob.prev_y = mob.y;
@@ -400,6 +487,7 @@ var key = require('./key');
         mob.x = 10;
         mob.y = 320;
         mob.cheated = true;
+        mob.shovel = true;
       }
       mob.lost = true;
       return;
@@ -436,8 +524,6 @@ var key = require('./key');
       jungle_clone.clone_index = jungle_save.length;
       jungle_save.push(jungle_clone);
       jungle_saved_index = jungle_save.length-1;
-      // console.log('save previous on '+(jungle_save.length-1));
-      // console.log('save previous on '+JSON.stringify(jungle_save));
     }
 
 
@@ -449,7 +535,9 @@ var key = require('./key');
       bound: [],
       tileset: [],
       tilesetb: [],
-      clone_index: -1
+      clone_index: -1,
+      eyes_x: 0,
+      eyes_y: 0
     };
     jungle.steps = [];
     if (mob.beach || mob.win) return;
@@ -497,7 +585,8 @@ var key = require('./key');
     if (path_taken == 2)
       mob.x = index_path_top*160+78;
 
-    // bounds
+    var eyes_index = rand_int(6);
+    // bounds + eyes
     jungle.bounds = [];
     jungle.tileset.forEach(function(tile, index) {
       if (tile == 3) {
@@ -505,7 +594,13 @@ var key = require('./key');
         jungle.bounds.push({x: index*160+96, y: 0, width: 64, height: 308});
       } else {
         jungle.bounds.push({x: index*160, y: 0, width: 160, height: 308});
+
+        if (eyes_index == index && tile == 2) {
+          jungle.eyes_x = index*160+rand_range(10, 144);
+          jungle.eyes_y = rand_range(186, 217);
+        }
       }
+      eyes_index++;
     });
     jungle.tilesetb.forEach(function(tile, index) {
       if (tile == 3) {
@@ -513,22 +608,28 @@ var key = require('./key');
         jungle.bounds.push({x: index*160+100, y: 344, width: 60, height: 136});
       } else {
         jungle.bounds.push({x: index*160, y: 344, width: 160, height: 136});
+
+        if (eyes_index == index) {
+          jungle.eyes_x = index*160+rand_range(10, 144);
+          jungle.eyes_y = rand_range(424,460);
+        }
       }
+      eyes_index++;
     });
 
     // items
     jungle.sword = false;
     jungle.hat = false;
     jungle.sign = -1;
-    if (!mob.sword && rand_int(11) > 9) {
+    if (!mob.sword && rand_int(11) > 6) {
       jungle.sword = true;
       jungle.sword_x = rand_range(100,550);
     }
-    if (!mob.hat && !jungle.sword && rand_int(11) > 9) {
+    if (!mob.hat && !jungle.sword && rand_int(11) > 6) {
       jungle.hat = true;
       jungle.hat_x = rand_range(100,550);
     }
-    if (!jungle.hat && !jungle.sword && rand_int(11) > 7) {
+    if (!jungle.hat && !jungle.sword && rand_int(11) > 4) {
       var possible_sign_positions = [];
       if (path_taken == 0) possible_sign_positions = [0,1,3];
       if (path_taken == 1) possible_sign_positions = [0,1,2];
@@ -573,19 +674,11 @@ var key = require('./key');
       mob.hat = true;
       sounds['pickup'].play();
     }
-    if (mob.beach && !mob.shovel && beach.shovel1 && (448 < mob.x &&
-        476 > mob.x &&
-        268 < mob.y &&
-        304 > mob.y)) {
-      beach.shovel1 = false;
-      mob.shovel = true;
-      sounds['pickup'].play();
-    }
-    if (mob.beach && !mob.shovel && beach.shovel2 && (432 < mob.x &&
-        432 + 12 > mob.x &&
+    if (mob.beach && beach.shovel && (416 < mob.x &&
+        432 + 24 > mob.x &&
         268 < mob.y &&
         312 > mob.y)) {
-      beach.shovel2 = false;
+      beach.shovel = false;
       mob.shovel = true;
       sounds['pickup'].play();
     }
@@ -610,7 +703,10 @@ var key = require('./key');
       never_lost: true,
       path_followed: [],
       end: -1,
-      cheated: false
+      cheated: false,
+      end_sword: false,
+      end_shovel: 0,
+      dug: false
     };
 
     jungle = {
@@ -618,31 +714,37 @@ var key = require('./key');
       sword: false,
       hat: false,
       steps: [],
-      bound: [],
+      bounds: [],
       tileset: [],
       tilesetb: [],
-      clone_index: -1
+      clone_index: -1,
+      eyes_x: 0,
+      eyes_y: 0
     };
 
     beach = {
       bounds: [
         {x: 0, y: 0, width: 640, height: 284},
         {x: 0, y: 0, width: 360, height: 480},
-        {x: 0, y: 384, width: 640, height: 96},
+        {x: 0, y: 380, width: 640, height: 96},
         {x: 580, y: 340, width: 60, height: 140},
-        {x: 0, y: 0, width: 372, height: 304},
-        {x: 0, y: 0, width: 400, height: 300},
-        {x: 0, y: 0, width: 432, height: 296},
-        {x: 0, y: 0, width: 464, height: 292},
-        {x: 0, y: 0, width: 488, height: 288},
+        {x: 0, y: 0, width: 372, height: 312},
+        {x: 0, y: 0, width: 400, height: 308},
+        {x: 0, y: 0, width: 432, height: 304},
+        {x: 0, y: 0, width: 464, height: 300},
+        {x: 0, y: 0, width: 488, height: 296},
         {x: 468, y: 284, width: 160, height: 24}
       ],
-      shovel1: true,
-      shovel2: true,
+      shovel: true,
       steps: []
     };
 
     jungle_save = [];
+
+    timer = 0;
+    timer_step = 0;
+    timer_anim_win = 0;
+    timeout_game_complete = 1;
   }
 
   function clone(obj) {

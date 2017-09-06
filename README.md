@@ -1,10 +1,10 @@
 # Just go straight
 ---
 
-![alt text](capture.png "Logo Title Text 1")
+![Capture](capture.png)
 
 [Js13kGames](http://js13kgames.com/) is a JavaScript coding competition for HTML5 Game Developers.
-Theme for the competition is "*lost*".
+Theme for the 2017 competition is "*lost*".
 
 ---
 
@@ -14,5 +14,7 @@ The interest of the game resides on the bet that the player will never go straig
 But as soon as they take another direction they are lost in the jungle and at every screen change, they get a better chance to get back to the beach so they have another chance to get it right. 
 
 ---
+
+The code is compressed by uglify (automatically via webpack) and the images by TinyPNG (manually online).
 
 Making games is not my job so this code is probably not something you want to learn from.
