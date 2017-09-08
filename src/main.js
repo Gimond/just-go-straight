@@ -34,7 +34,8 @@ var key = require('./key');
     win: [0,,0.42,,0.61,0.4823,0.3,0.28,0.08,,,,,0.5228,,0.4983,,,1,,,,,0.5],
     empty: [1,,0.27,,0.59,0.45,,-0.2325,,,,,,0.0266,0.1374,,,,1,,,,,0.5],
     step: [1,,0.0284,,0.1618,0.397,,-0.6104,,,,,,,,,,,1,,,0.2436,,0.5],
-    hit: [3,,0.0833,,0.1303,0.3802,,-0.4149,,,,,,,,,,,1,,,0.1488,,0.5]
+    hit: [3,,0.0833,,0.1303,0.3802,,-0.4149,,,,,,,,,,,1,,,0.1488,,0.5],
+    wave: [3,0.56,0.39,,0.85,0.41,,0.26,0.12,,,0.08,,,,,,,0.4,,,,-0.26,0.5]
   };
   Object.keys(sounds).map(function(objectKey, index) {
     var soundURL = jsfxr.init(sounds[objectKey]);
@@ -60,18 +61,22 @@ var key = require('./key');
   var items_sprite = new Image();
   items_sprite.src = 'i.png';
 
+  var wave = new Image();
+  wave.src = 'w.png';
+
   // 0 = cheater
   // 1 = lose
   // 2 = forgot shovel
   // 3 = win
-  // var endings = [false, false, false, false];
-  var endings = [true, true, true, true];
+  var endings = [false, false, false, false];
+  // var endings = [true, true, true, true];
   var game_complete = false;
 
   var timer = 0;
   var timer_step = 0;
   var timer_eyes = 0;
   var timer_anim_win = 0;
+  var timer_wave = 2;
   var timeout_game_complete = 1;
   // var secret_path = [1,3,0,1,0,2,3,0,2,1,1,0,3,2,0,1,3,3,3,1,2,0];
   var cheat_path = [0,0,2,2,3,1,3,1];
@@ -172,6 +177,14 @@ var key = require('./key');
     if (mob.beach) {
       // draw beach
       ctx.drawImage(beach_bg, 0, 0, canvas.width, canvas.height);
+      if (timer_wave > 3) {
+        ctx.drawImage(wave, 136, 360, 504, 72);
+      }
+      if (timer_wave > 5) {
+        timer_wave = 0;
+        sounds['wave'].play();
+      }
+      timer_wave+= dt;
     } else if (mob.win) {
       // draw end screen
       ctx.drawImage(treasure, 0, 0, canvas.width, canvas.height);
@@ -599,8 +612,8 @@ var key = require('./key');
           jungle.eyes_x = index*160+rand_range(10, 144);
           jungle.eyes_y = rand_range(186, 217);
         }
+        eyes_index++;
       }
-      eyes_index++;
     });
     jungle.tilesetb.forEach(function(tile, index) {
       if (tile == 3) {
@@ -613,8 +626,8 @@ var key = require('./key');
           jungle.eyes_x = index*160+rand_range(10, 144);
           jungle.eyes_y = rand_range(424,460);
         }
+        eyes_index++;
       }
-      eyes_index++;
     });
 
     // items
